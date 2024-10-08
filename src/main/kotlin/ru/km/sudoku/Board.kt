@@ -27,7 +27,6 @@ open class Board(difficulty: Difficulty) {
     private fun generateCells(difficulty: Difficulty): Map<Position, Cell> {
         val visiblePositions = mutableSetOf<Int>()
         val traverseList = (1..CELLS_IN_LINE * CELLS_IN_LINE)
-            .toList()
             .map { it -> Position(it) }
             .sortedWith(Position.getRandomComparator())
         val traverseIterator = traverseList.listIterator()
@@ -90,7 +89,6 @@ open class Board(difficulty: Difficulty) {
                 rangeValue !in mapOfValues
                     .filter { lambda(it.key) == given }
                     .values
-                    .map { it }
                     .toSet()
             }.toSet()
     }
@@ -123,10 +121,10 @@ open class Board(difficulty: Difficulty) {
             }
     }
 
-    fun setVersion(index: Int, version: Int) {
-        if (index == 0) cells
+    fun setVersion(index: Int, version: Int) = when (index) {
+        0 -> cells
             .forEach { mVersions[it.value] = 0 }
-        else cells
+        else -> cells
             .filter { it.key.index == index && !it.value.isVisible }
             .firstNotNullOf { mVersions[it.value] = version }
     }
