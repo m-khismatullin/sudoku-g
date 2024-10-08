@@ -7,12 +7,12 @@ open class Board(difficulty: Difficulty) {
     val cells: Map<Position, Cell>
 
     companion object {
-        const val CELLS_IN_LINE = 9
-        const val CELLS_IN_BLOCK = 3
-        const val BLOCKS_IN_LINE = CELLS_IN_LINE / CELLS_IN_BLOCK
+        const val LINE_SIZE_IN_CELL = 9
+        const val BLOCK_SIZE_IN_CELL = 3
+        const val BLOCKS_IN_LINE = LINE_SIZE_IN_CELL / BLOCK_SIZE_IN_CELL
 
-        fun getIndexByRC(row: Int, col: Int) = col + (row - 1) * CELLS_IN_LINE
-        private fun randomIndex() = (1..CELLS_IN_LINE * CELLS_IN_LINE).random()
+        fun getIndexByRC(row: Int, col: Int) = col + (row - 1) * LINE_SIZE_IN_CELL
+        private fun randomIndex() = (1..LINE_SIZE_IN_CELL * LINE_SIZE_IN_CELL).random()
     }
 
     init {
@@ -26,7 +26,7 @@ open class Board(difficulty: Difficulty) {
 
     private fun generateCells(difficulty: Difficulty): Map<Position, Cell> {
         val visiblePositions = mutableSetOf<Int>()
-        val traverseList = (1..CELLS_IN_LINE * CELLS_IN_LINE)
+        val traverseList = (1..LINE_SIZE_IN_CELL * LINE_SIZE_IN_CELL)
             .map { Position(it) }
             .sortedWith(Position.getRandomComparator())
         val traverseIterator = traverseList.listIterator()
@@ -54,7 +54,7 @@ open class Board(difficulty: Difficulty) {
                 traverseIterator.previous()
             }
 
-        (1..Difficulty.getClues(difficulty)).forEach {_->
+        (1..Difficulty.getClues(difficulty)).forEach { _ ->
             visiblePositions += randomIndex()
         }
 
@@ -80,27 +80,27 @@ open class Board(difficulty: Difficulty) {
 
     private fun leftIn(
         position: Position,
+        rangeLimit: Int,
         mapOfValues: Map<Position, Int>,
         lambda: (pos: Position) -> Int
     ): Set<Int> {
         val given = lambda(position)
-        return (1..CELLS_IN_LINE)
-            .filter { rangeValue ->
-                rangeValue !in mapOfValues
-                    .filter { lambda(it.key) == given }
-                    .values
-                    .toSet()
-            }.toSet()
+        return (1..rangeLimit).minus(
+            mapOfValues
+                .filter { lambda(it.key) == given }
+                .values
+                .toSet()
+        ).toSet()
     }
 
     private fun leftInCol(position: Position, mapOfValues: Map<Position, Int>) =
-        leftIn(position, mapOfValues) { pos: Position -> pos.col }
+        leftIn(position, LINE_SIZE_IN_CELL, mapOfValues) { pos: Position -> pos.col }
 
     private fun leftInRow(position: Position, mapOfValues: Map<Position, Int>) =
-        leftIn(position, mapOfValues) { pos: Position -> pos.row }
+        leftIn(position, LINE_SIZE_IN_CELL, mapOfValues) { pos: Position -> pos.row }
 
     private fun leftInBlk(position: Position, mapOfValues: Map<Position, Int>) =
-        leftIn(position, mapOfValues) { pos: Position -> pos.blk }
+        leftIn(position, BLOCK_SIZE_IN_CELL * BLOCK_SIZE_IN_CELL, mapOfValues) { pos: Position -> pos.blk }
 
     fun noMoreMoves(): Boolean =
         cells.values.all { (versions[it] ?: 0) > 0 } && isAllVersionsConsistent()
@@ -126,6 +126,7 @@ open class Board(difficulty: Difficulty) {
     fun setVersion(index: Int, version: Int) = when (index) {
         0 -> cells
             .forEach { mVersions[it.value] = 0 }
+
         else -> cells
             .filter { it.key.index == index && !it.value.isVisible }
             .firstNotNullOf { mVersions[it.value] = version }

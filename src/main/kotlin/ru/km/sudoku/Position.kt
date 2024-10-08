@@ -1,17 +1,17 @@
 package ru.km.sudoku
 
 import ru.km.sudoku.Board.Companion.BLOCKS_IN_LINE
-import ru.km.sudoku.Board.Companion.CELLS_IN_BLOCK
-import ru.km.sudoku.Board.Companion.CELLS_IN_LINE
+import ru.km.sudoku.Board.Companion.BLOCK_SIZE_IN_CELL
+import ru.km.sudoku.Board.Companion.LINE_SIZE_IN_CELL
 
 class Position(val index: Int) {
     val col: Int
-        get() = (index - 1) % CELLS_IN_LINE + 1
+        get() = (index - 1) % LINE_SIZE_IN_CELL + 1
     val row: Int
-        get() = (index - 1) / CELLS_IN_LINE + 1
+        get() = (index - 1) / LINE_SIZE_IN_CELL + 1
     val blk: Int
-        get() = ((row - 1) / CELLS_IN_BLOCK) * BLOCKS_IN_LINE +
-                (col - 1) / CELLS_IN_BLOCK + 1
+        get() = ((row - 1) / BLOCK_SIZE_IN_CELL) * BLOCKS_IN_LINE +
+                (col - 1) / BLOCK_SIZE_IN_CELL + 1
 
     override fun toString(): String {
         return "$index"
