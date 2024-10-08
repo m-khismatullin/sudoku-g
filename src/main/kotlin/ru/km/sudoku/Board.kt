@@ -27,12 +27,12 @@ open class Board(difficulty: Difficulty) {
     private fun generateCells(difficulty: Difficulty): Map<Position, Cell> {
         val visiblePositions = mutableSetOf<Int>()
         val traverseList = (1..CELLS_IN_LINE * CELLS_IN_LINE)
-            .map { it -> Position(it) }
+            .map { Position(it) }
             .sortedWith(Position.getRandomComparator())
         val traverseIterator = traverseList.listIterator()
 
         var node = Node(parent = null, Position(0), possibles = setOf(0))
-        var fromRetToParent: Boolean = false
+        var fromRetToParent = false
 
         while (traverseIterator.hasNext())
             try {
@@ -54,7 +54,7 @@ open class Board(difficulty: Difficulty) {
                 traverseIterator.previous()
             }
 
-        (1..Difficulty.getClues(difficulty)).forEach {
+        (1..Difficulty.getClues(difficulty)).forEach {_->
             visiblePositions += randomIndex()
         }
 
@@ -81,7 +81,7 @@ open class Board(difficulty: Difficulty) {
     private fun leftIn(
         position: Position,
         mapOfValues: Map<Position, Int>,
-        lambda: (position: Position) -> Int
+        lambda: (pos: Position) -> Int
     ): Set<Int> {
         val given = lambda(position)
         return (1..CELLS_IN_LINE)
