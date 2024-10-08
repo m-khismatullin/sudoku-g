@@ -1,5 +1,9 @@
 package ru.km.sudoku
 
+import ru.km.sudoku.Board.Companion.BLOCK_SIZE_IN_CELL
+import ru.km.sudoku.Board.Companion.LINE_SIZE_IN_CELL
+import ru.km.sudoku.Position.Companion.getWithDiagonallyOppositeIndexList
+
 open class Board(difficulty: Difficulty) {
     private val mVersions: MutableMap<Cell, Int>
     val versions: Map<Cell, Int>
@@ -11,7 +15,6 @@ open class Board(difficulty: Difficulty) {
         const val BLOCK_SIZE_IN_CELL = 3
         const val BLOCKS_IN_LINE = LINE_SIZE_IN_CELL / BLOCK_SIZE_IN_CELL
 
-        fun getIndexByRC(row: Int, col: Int) = col + (row - 1) * LINE_SIZE_IN_CELL
         private fun randomIndex() = (1..LINE_SIZE_IN_CELL * LINE_SIZE_IN_CELL).random()
     }
 
@@ -25,11 +28,10 @@ open class Board(difficulty: Difficulty) {
     }
 
     private fun generateCells(difficulty: Difficulty): Map<Position, Cell> {
-        val visiblePositions = mutableSetOf<Int>()
-        val traverseList = (1..LINE_SIZE_IN_CELL * LINE_SIZE_IN_CELL)
+        val traverseIterator = (1..LINE_SIZE_IN_CELL * LINE_SIZE_IN_CELL)
             .map { Position(it) }
             .sortedWith(Position.getRandomComparator())
-        val traverseIterator = traverseList.listIterator()
+            .listIterator()
 
         var node = Node(parent = null, Position(0), possibles = setOf(0))
         var fromRetToParent = false
@@ -40,9 +42,9 @@ open class Board(difficulty: Difficulty) {
                     val position = traverseIterator.next()
                     val mapOfValues = getMapFromNodeChain(node)
                     node = Node(
-                        parent = node, position = position, possibles = leftInCol(position, mapOfValues).intersect(
-                            leftInRow(position, mapOfValues).intersect(
-                                leftInBlk(position, mapOfValues)
+                        parent = node, position = position, possibles = mapOfValues.leftInCol(position).intersect(
+                            mapOfValues.leftInRow(position).intersect(
+                                mapOfValues.leftInBlk(position)
                             )
                         )
                     )
@@ -54,9 +56,7 @@ open class Board(difficulty: Difficulty) {
                 traverseIterator.previous()
             }
 
-        (1..Difficulty.getClues(difficulty)).forEach { _ ->
-            visiblePositions += randomIndex()
-        }
+        val visiblePositions = generateVisiblePositions(Difficulty.getClues(difficulty))
 
         return getMapFromNodeChain(node).map {
             it.key to Cell(
@@ -64,6 +64,18 @@ open class Board(difficulty: Difficulty) {
                 number = it.value
             )
         }.toMap()
+    }
+
+    private fun generateVisiblePositions(needToOpen: Int): Set<Int> {
+        val positionList = (1..LINE_SIZE_IN_CELL * LINE_SIZE_IN_CELL).map { Position(it) }
+        val opened = mutableSetOf<Int>()
+        while (needToOpen - opened.size > 0) {
+            opened += when((0..1).random()) {
+                0 -> getWithDiagonallyOppositeIndexList(positionList.random())
+                else -> setOf(positionList.random().index)
+            }
+        }
+        return opened.take(needToOpen).toSet()
     }
 
     private fun getMapFromNodeChain(currentNode: Node): Map<Position, Int> {
@@ -78,48 +90,28 @@ open class Board(difficulty: Difficulty) {
         return result
     }
 
-    private fun leftIn(
-        position: Position,
-        rangeLimit: Int,
-        mapOfValues: Map<Position, Int>,
-        lambda: (pos: Position) -> Int
-    ): Set<Int> {
-        val given = lambda(position)
-        return (1..rangeLimit).minus(
-            mapOfValues
-                .filter { lambda(it.key) == given }
-                .values
-                .toSet()
-        ).toSet()
-    }
-
-    private fun leftInCol(position: Position, mapOfValues: Map<Position, Int>) =
-        leftIn(position, LINE_SIZE_IN_CELL, mapOfValues) { pos: Position -> pos.col }
-
-    private fun leftInRow(position: Position, mapOfValues: Map<Position, Int>) =
-        leftIn(position, LINE_SIZE_IN_CELL, mapOfValues) { pos: Position -> pos.row }
-
-    private fun leftInBlk(position: Position, mapOfValues: Map<Position, Int>) =
-        leftIn(position, BLOCK_SIZE_IN_CELL * BLOCK_SIZE_IN_CELL, mapOfValues) { pos: Position -> pos.blk }
-
     fun noMoreMoves(): Boolean =
         cells.values.all { (versions[it] ?: 0) > 0 } && isAllVersionsConsistent()
 
     private fun isAllVersionsConsistent(): Boolean {
         if (versions.any { it.value == 0 }) return false
-        val vCells = mutableMapOf<Position, Int>()
+        val mvCells = mutableMapOf<Position, Int>()
         versions.forEach { vEntry ->
             val cell = vEntry.key
             val version = vEntry.value
             val index = cells.filter { it.value == cell }.map { it.key }.first()
-            vCells[index] = if (!cell.isVisible) version else cell.number
+            mvCells[index] = if (!cell.isVisible) version else cell.number
         }
+
+        val vCells = mvCells.toMap()
         return vCells
             .filter { it.key.col == it.key.row }
             .none {
-                leftInRow(it.key, vCells.toMap()).isNotEmpty() ||
-                        leftInCol(it.key, vCells.toMap()).isNotEmpty() ||
-                        leftInBlk(it.key, vCells.toMap()).isNotEmpty()
+                with(vCells) {
+                    this.leftInRow(it.key).isNotEmpty() ||
+                            this.leftInCol(it.key).isNotEmpty() ||
+                            this.leftInBlk(it.key).isNotEmpty()
+                }
             }
     }
 
@@ -133,3 +125,28 @@ open class Board(difficulty: Difficulty) {
     }
 
 }
+
+
+// extension functions
+private fun Map<Position, Int>.leftIn(
+    position: Position,
+    rangeLimit: Int,
+    lambda: (pos: Position) -> Int
+): Set<Int> {
+    val given = lambda(position)
+    return (1..rangeLimit).minus(
+        this
+            .filter { lambda(it.key) == given }
+            .values
+            .toSet()
+    ).toSet()
+}
+
+private fun Map<Position, Int>.leftInCol(position: Position) =
+    leftIn(position, LINE_SIZE_IN_CELL) { pos: Position -> pos.col }
+
+private fun Map<Position, Int>.leftInRow(position: Position) =
+    leftIn(position, LINE_SIZE_IN_CELL) { pos: Position -> pos.row }
+
+private fun Map<Position, Int>.leftInBlk(position: Position) =
+    leftIn(position, BLOCK_SIZE_IN_CELL * BLOCK_SIZE_IN_CELL) { pos: Position -> pos.blk }

@@ -8,7 +8,7 @@ enum class Difficulty {
             EASY -> (36..45)
             INTERMEDIATE -> (27..35)
             HARD -> (19..26)
-            INCREDIBLE -> (16..18)
+            INCREDIBLE -> (17..18)
         }.random()
     }
 }

@@ -18,6 +18,21 @@ class Position(val index: Int) {
     }
 
     companion object {
+        fun getIndexByRC(row: Int, col: Int) = col + (row - 1) * LINE_SIZE_IN_CELL
+
+        fun getWithDiagonallyOppositeIndexList(position: Position) =
+            setOf(
+                getIndexByRC(
+                    row = LINE_SIZE_IN_CELL + 1 - position.row,
+                    col = LINE_SIZE_IN_CELL + 1 - position.col
+                ),
+                position.index
+            )
+
+
+        fun getRandomComparator() = comparators.random()
+        fun getStandardComparator() = comparatorStandard
+
         private val comparatorStandard = Comparator<Position> { p1, p2 ->
             when {
                 p1.index == p2.index -> 0
@@ -54,11 +69,23 @@ class Position(val index: Int) {
             }
         }
 
-        private val comparators = setOf(
-            comparatorStandard, comparatorUpDown, comparatorBlock, comparatorOddEvenInRow
-        )
+        private val shuffledList = (1..LINE_SIZE_IN_CELL * LINE_SIZE_IN_CELL).shuffled()
+        private val comparatorShuffled = Comparator<Position> { p1, p2 ->
+            with(shuffledList) {
+                when {
+                    this.indexOf(p1.index) == this.indexOf(p2.index) -> 0
+                    this.indexOf(p1.index) < this.indexOf(p2.index) -> 1
+                    else -> 1
+                }
+            }
+        }
 
-        fun getRandomComparator() = comparators.random()
-        fun getStandardComparator() = comparatorStandard
+        private val comparators = setOf(
+            comparatorStandard,
+            comparatorUpDown,
+            comparatorBlock,
+            comparatorOddEvenInRow,
+            comparatorShuffled
+        )
     }
 }

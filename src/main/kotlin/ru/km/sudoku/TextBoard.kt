@@ -58,14 +58,14 @@ class TextBoard(difficulty: Difficulty) : Board(difficulty) {
         if (input.isEmpty() || input.isBlank()) return
 
         if (input.length >= 3) {
-            if (input == "000") setVersion(0,0)
+            if (input == "000") setVersion(0, 0)
             else {
                 val row = getNumFromChar(input[0])
                 val col = getNumFromChar(input[1])
                 val value = getNumFromChar(input[2])
 
                 if (row in (1..9) || col in (1..9) || value in (1..9)) {
-                    setVersion( getIndexByRC(row, col), value)
+                    setVersion(Position.getIndexByRC(row, col), value)
                 }
             }
         }
