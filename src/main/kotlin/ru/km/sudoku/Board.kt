@@ -116,8 +116,10 @@ open class Board(difficulty: Difficulty) {
         }
         return vCells
             .filter { it.key.col == it.key.row }
-            .all {
-                leftInRow(it.key, vCells.toMap()).isEmpty() && leftInCol(it.key, vCells.toMap()).isEmpty()
+            .none {
+                leftInRow(it.key, vCells.toMap()).isNotEmpty() ||
+                        leftInCol(it.key, vCells.toMap()).isNotEmpty() ||
+                        leftInBlk(it.key, vCells.toMap()).isNotEmpty()
             }
     }
 
