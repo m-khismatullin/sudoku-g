@@ -38,13 +38,13 @@ open class Board(difficulty: Difficulty) {
 
     private fun generateCells(difficulty: Difficulty): Map<Position, Cell> {
         runBlocking {
-            defineChildNodes(Node(parent = null, Position(-1), 0))
+            defineChildNodes(Node(parent = null, Position(0), 0))
         }
         val node = allNodes.first { it.position == lastPosition }
 
         val visiblePositions = generateVisiblePositions(Difficulty.getClues(difficulty))
 
-        return getMapFromNodeChain(node).map {
+        return node.getValuesFromNodeChain().map {
             it.key to Cell(
                 isVisible = visiblePositions.contains(it.key.index),
                 number = it.value
@@ -89,18 +89,6 @@ open class Board(difficulty: Difficulty) {
             }
         }
         return opened.take(needToOpen).toSet()
-    }
-
-    private fun getMapFromNodeChain(currentNode: Node): Map<Position, Int> {
-        var node = currentNode
-        val result = mutableMapOf(node.position to node.number)
-        while (true) {
-            node.parent?.let {
-                if (it.number > 0) result[it.position] = it.number
-                node = it
-            } ?: break
-        }
-        return result
     }
 
     fun noMoreMoves(): Boolean =
