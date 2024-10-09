@@ -2,7 +2,7 @@ package ru.km.sudoku
 
 class TextBoard(difficulty: Difficulty) : Board(difficulty) {
     override fun toString(): String {
-        val map = StringBuilder("")
+        val map = StringBuilder("\n")
         val mapLine = StringBuilder(" ")
 
         (1..LINE_SIZE_IN_CELL).forEach {
@@ -47,7 +47,6 @@ class TextBoard(difficulty: Difficulty) : Board(difficulty) {
         }
         mapLine.append(" ")
         map.append(mapLine.append("\n"))
-        mapLine.clear()
 
         return map.toString()
     }

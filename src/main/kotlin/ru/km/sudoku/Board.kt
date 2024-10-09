@@ -134,7 +134,7 @@ open class Board(difficulty: Difficulty) {
 
         else -> cells
             .filter { it.key.index == index && !it.value.isVisible }
-            .firstNotNullOf { mVersions[it.value] = version }
+            .firstNotNullOfOrNull { mVersions[it.value] = version }
     }
 
 }
