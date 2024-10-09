@@ -1,21 +1,30 @@
 package ru.km.sudoku
 
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import ru.km.sudoku.Board.Companion.BLOCK_SIZE_IN_CELL
 import ru.km.sudoku.Board.Companion.LINE_SIZE_IN_CELL
 import ru.km.sudoku.Position.Companion.getWithDiagonallyOppositeIndexList
+import java.util.concurrent.LinkedBlockingQueue
 
 open class Board(difficulty: Difficulty) {
     private val mVersions: MutableMap<Cell, Int>
     val versions: Map<Cell, Int>
         get() = mVersions.toMap()
     val cells: Map<Position, Cell>
+    private val traverseList = (1..LINE_SIZE_IN_CELL * LINE_SIZE_IN_CELL)
+        .map { Position(it) }
+        .sortedWith(Position.getRandomComparator())
+    private val lastPosition: Position
+        get() = traverseList.last()
+    private val allNodes = LinkedBlockingQueue<Node>()
 
     companion object {
         const val LINE_SIZE_IN_CELL = 9
         const val BLOCK_SIZE_IN_CELL = 3
         const val BLOCKS_IN_LINE = LINE_SIZE_IN_CELL / BLOCK_SIZE_IN_CELL
-
-        private fun randomIndex() = (1..LINE_SIZE_IN_CELL * LINE_SIZE_IN_CELL).random()
     }
 
     init {
@@ -28,33 +37,10 @@ open class Board(difficulty: Difficulty) {
     }
 
     private fun generateCells(difficulty: Difficulty): Map<Position, Cell> {
-        val traverseIterator = (1..LINE_SIZE_IN_CELL * LINE_SIZE_IN_CELL)
-            .map { Position(it) }
-            .sortedWith(Position.getRandomComparator())
-            .listIterator()
-
-        var node = Node(parent = null, Position(0), possibles = setOf(0))
-        var fromRetToParent = false
-
-        while (traverseIterator.hasNext())
-            try {
-                if (!fromRetToParent) {
-                    val position = traverseIterator.next()
-                    val mapOfValues = getMapFromNodeChain(node)
-                    node = Node(
-                        parent = node, position = position, possibles = mapOfValues.leftInCol(position).intersect(
-                            mapOfValues.leftInRow(position).intersect(
-                                mapOfValues.leftInBlk(position)
-                            )
-                        )
-                    )
-                } else fromRetToParent = false
-                node.number = node.possibles.minus(node.excluded).random()
-            } catch (e: NoSuchElementException) {
-                fromRetToParent = true
-                node = node.retToParent()
-                traverseIterator.previous()
-            }
+        runBlocking {
+            defineChildNodes(Node(parent = null, Position(-1), 0))
+        }
+        val node = allNodes.first { it.position == lastPosition }
 
         val visiblePositions = generateVisiblePositions(Difficulty.getClues(difficulty))
 
@@ -66,11 +52,38 @@ open class Board(difficulty: Difficulty) {
         }.toMap()
     }
 
+    private fun isResultAchieved(): Boolean {
+        return allNodes.any { it.position == lastPosition }
+    }
+
+    private suspend fun defineChildNodes(parent: Node) {
+        if (isResultAchieved()) throw CancellationException("генерация судоку выполнена")
+
+        val index = (parent.parent?.let { traverseList.indexOf(parent.position) + 1 } ?: 0)
+        val position = traverseList[index]
+        val state = parent.getValuesFromNodeChain()
+        val possibles = state.leftInCol(position).intersect(
+            state.leftInRow(position).intersect(
+                state.leftInBlk(position)
+            )
+        ).toList().shuffled()
+
+        possibles.forEach {
+            coroutineScope {
+                launch {
+                    val node = Node(parent, position, it)
+                    allNodes.put(node)
+                    defineChildNodes(node)
+                }
+            }
+        }
+    }
+
     private fun generateVisiblePositions(needToOpen: Int): Set<Int> {
         val positionList = (1..LINE_SIZE_IN_CELL * LINE_SIZE_IN_CELL).map { Position(it) }
         val opened = mutableSetOf<Int>()
         while (needToOpen - opened.size > 0) {
-            opened += when((0..1).random()) {
+            opened += when ((0..1).random()) {
                 0 -> getWithDiagonallyOppositeIndexList(positionList.random())
                 else -> setOf(positionList.random().index)
             }
@@ -142,11 +155,11 @@ private fun Map<Position, Int>.leftIn(
     ).toSet()
 }
 
-private fun Map<Position, Int>.leftInCol(position: Position) =
+fun Map<Position, Int>.leftInCol(position: Position) =
     leftIn(position, LINE_SIZE_IN_CELL) { pos: Position -> pos.col }
 
-private fun Map<Position, Int>.leftInRow(position: Position) =
+fun Map<Position, Int>.leftInRow(position: Position) =
     leftIn(position, LINE_SIZE_IN_CELL) { pos: Position -> pos.row }
 
-private fun Map<Position, Int>.leftInBlk(position: Position) =
+fun Map<Position, Int>.leftInBlk(position: Position) =
     leftIn(position, BLOCK_SIZE_IN_CELL * BLOCK_SIZE_IN_CELL) { pos: Position -> pos.blk }
