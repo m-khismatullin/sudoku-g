@@ -54,7 +54,9 @@ class TextBoard(difficulty: Difficulty) : Board(difficulty) {
 
     private fun getNumFromChar(char: Char) = char - '0'
 
-    fun setVersionForField(input: String) {
+    fun setVersionForField(userInput: String) {
+        val input = userInput.filter { it.isDigit() }
+
         if (input.isEmpty() || input.isBlank()) return
 
         if (input.length >= 3) {
