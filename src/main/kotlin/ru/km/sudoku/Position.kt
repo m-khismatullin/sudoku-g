@@ -74,7 +74,7 @@ class Position(val index: Int) {
             with(shuffledList) {
                 when {
                     this.indexOf(p1.index) == this.indexOf(p2.index) -> 0
-                    this.indexOf(p1.index) < this.indexOf(p2.index) -> 1
+                    this.indexOf(p1.index) < this.indexOf(p2.index) -> -1
                     else -> 1
                 }
             }
@@ -85,7 +85,7 @@ class Position(val index: Int) {
             comparatorUpDown,
             comparatorBlock,
             comparatorOddEvenInRow,
-            comparatorShuffled
+            //comparatorShuffled -- пока исключил поскольку зависает при генерации через корутины
         )
     }
 }
