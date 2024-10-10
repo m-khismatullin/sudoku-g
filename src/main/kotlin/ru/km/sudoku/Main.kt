@@ -1,6 +1,6 @@
 package ru.km.sudoku
 
-fun main() {
+suspend fun main() {
     print(
         """
         Укажите уровень сложности (4 - невероятный, 3 - сложный, 2 - средний, иначе - легкий): 
@@ -13,7 +13,8 @@ fun main() {
         else -> Difficulty.EASY
     }
 
-    val board = TextBoard(difficulty)
+    val board = TextBoard()
+    board(difficulty)
     println(board)
 
     while (true) {

@@ -1,6 +1,6 @@
 package ru.km.sudoku
 
-class TextBoard(difficulty: Difficulty) : Board(difficulty) {
+class TextBoard: Board() {
     override fun toString(): String {
         val map = StringBuilder("\n")
         val mapLine = StringBuilder(" ")

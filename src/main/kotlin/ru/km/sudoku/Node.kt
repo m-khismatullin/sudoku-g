@@ -6,5 +6,5 @@ class Node(
     val number: Int,
 ) {
     fun getValuesFromNodeChain(): Map<Position, Int> =
-        (parent?.getValuesFromNodeChain()?.plus(position to number) ?: emptyMap())
+        parent?.getValuesFromNodeChain()?.plus(position to number) ?: emptyMap()
 }
