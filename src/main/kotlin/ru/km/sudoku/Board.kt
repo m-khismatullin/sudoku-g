@@ -40,9 +40,7 @@ open class Board {
             .firstNotNullOfOrNull { mVersions[it.value] = version }
     }
 
-    suspend operator fun invoke(difficulty: Difficulty) = initGame(difficulty)
-
-    private suspend fun initGame(difficulty: Difficulty) {
+    suspend operator fun invoke(difficulty: Difficulty) {
         allNodes.clear()
         mCells = generateCells(difficulty)
         mVersions = cells
@@ -75,11 +73,7 @@ open class Board {
         val index = (parent.parent?.let { traverseList.indexOf(parent.position) + 1 } ?: 0)
         val position = traverseList[index]
         val state = parent.getValuesFromNodeChain()
-        val possibles = state.leftInCol(position).intersect(
-            state.leftInRow(position).intersect(
-                state.leftInBlk(position)
-            )
-        ).toList().shuffled()
+        val possibles = state.leftInPos(position).toList().shuffled()
 
         possibles.forEach {
             try {
@@ -149,11 +143,14 @@ private fun Map<Position, Int>.leftIn(
     ).toSet()
 }
 
-fun Map<Position, Int>.leftInCol(position: Position) =
+private fun Map<Position, Int>.leftInCol(position: Position) =
     leftIn(position, LINE_SIZE_IN_CELL) { pos: Position -> pos.col }
 
-fun Map<Position, Int>.leftInRow(position: Position) =
+private fun Map<Position, Int>.leftInRow(position: Position) =
     leftIn(position, LINE_SIZE_IN_CELL) { pos: Position -> pos.row }
 
-fun Map<Position, Int>.leftInBlk(position: Position) =
+private fun Map<Position, Int>.leftInBlk(position: Position) =
     leftIn(position, BLOCK_SIZE_IN_CELL * BLOCK_SIZE_IN_CELL) { pos: Position -> pos.blk }
+
+private fun Map<Position, Int>.leftInPos(position: Position) =
+    leftInCol(position).intersect(leftInRow(position).intersect(leftInBlk(position)))
