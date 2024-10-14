@@ -72,19 +72,18 @@ open class Board {
             val state = parent.getValuesFromNodeChain()
             val possibles = state.leftInPos(position).toList().shuffled()
 
-            if (possibles.isNotEmpty())
-                possibles.forEach {
-                    coroutineScope {
-                        launch {
-                            val node = Node(parent, position, it)
-                            allNodes += node
-                            try {
-                                defineChildNodes(node)
-                            } catch (_: Exception) {
-                            }
+            possibles.forEach {
+                coroutineScope {
+                    launch {
+                        val node = Node(parent, position, it)
+                        allNodes += node
+                        try {
+                            defineChildNodes(node)
+                        } catch (_: Exception) {
                         }
                     }
                 }
+            }
         }
     }
 
