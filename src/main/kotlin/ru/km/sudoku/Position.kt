@@ -29,7 +29,6 @@ class Position(val index: Int) {
                 position.index
             )
 
-
         fun getRandomComparator() = comparators.random()
         fun getStandardComparator() = comparatorStandard
 

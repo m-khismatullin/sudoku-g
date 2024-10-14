@@ -1,6 +1,5 @@
 package ru.km.sudoku
 
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import ru.km.sudoku.Board.Companion.BLOCK_SIZE_IN_CELL
@@ -53,9 +52,10 @@ open class Board {
         defineChildNodes(Node(parent = null, Position(0), 0))
         val node = allNodes.first { it.position == lastPosition }
 
-        val visiblePositions = generateVisiblePositions(Difficulty.getClues(difficulty))
+        val state = node.getValuesFromNodeChain()
+        val visiblePositions = generateVisiblePositions(state, Difficulty.getClues(difficulty))
 
-        return node.getValuesFromNodeChain().map {
+        return state.map {
             it.key to Cell(
                 isVisible = visiblePositions.contains(it.key.index),
                 number = it.value
@@ -63,44 +63,57 @@ open class Board {
         }.toMap()
     }
 
-    private fun isResultAchieved(): Boolean {
-        return allNodes.any { it.position == lastPosition }
-    }
+    private fun isResultAchieved() = allNodes.any { it.position == lastPosition }
 
     private suspend fun defineChildNodes(parent: Node) {
-        if (isResultAchieved()) throw CancellationException("генерация судоку выполнена")
+        if (!isResultAchieved()) {
+            val index = (parent.parent?.let { traverseList.indexOf(parent.position) + 1 } ?: 0)
+            val position = traverseList[index]
+            val state = parent.getValuesFromNodeChain()
+            val possibles = state.leftInPos(position).toList().shuffled()
 
-        val index = (parent.parent?.let { traverseList.indexOf(parent.position) + 1 } ?: 0)
-        val position = traverseList[index]
-        val state = parent.getValuesFromNodeChain()
-        val possibles = state.leftInPos(position).toList().shuffled()
-
-        possibles.forEach {
-            try {
-                coroutineScope {
-                    launch {
-                        val node = Node(parent, position, it)
-                        allNodes += node
-                        defineChildNodes(node)
+            if (possibles.isNotEmpty())
+                possibles.forEach {
+                    coroutineScope {
+                        launch {
+                            val node = Node(parent, position, it)
+                            allNodes += node
+                            try {
+                                defineChildNodes(node)
+                            } catch (_: Exception) {
+                            }
+                        }
                     }
                 }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (_: Exception) {
-            }
         }
     }
 
-    private fun generateVisiblePositions(needToOpen: Int): Set<Int> {
-        val positionList = (1..LINE_SIZE_IN_CELL * LINE_SIZE_IN_CELL).map { Position(it) }
+    private fun generateVisiblePositions(state: Map<Position, Int>, needToOpen: Int): Set<Int> {
+        val positionList = state.keys.toMutableList()
         val opened = mutableSetOf<Int>()
-        while (needToOpen - opened.size > 0) {
-            opened += when ((0..1).random()) {
-                0 -> getWithDiagonallyOppositeIndexList(positionList.random())
-                else -> setOf(positionList.random().index)
+        var possibleState = state
+
+        while (opened.size - needToOpen <= 0 && positionList.size != 0) {
+            val position = positionList.random()
+            setOf(
+                positionList.firstOrNull { getWithDiagonallyOppositeIndexList(position).random() == it.index }
+                    ?: position,
+                position,
+            ).forEach {
+                if (isStateAdequate(possibleState, it)) {
+                    possibleState = possibleState.minus(position)
+                    opened += it.index
+                }
+                positionList -= position
             }
         }
+
         return opened.take(needToOpen).toSet()
+    }
+
+    private fun isStateAdequate(state: Map<Position, Int>, position: Position): Boolean {
+        val possibleState = state.minus(position)
+        return possibleState.leftInPos(position).size == 1
     }
 
     private fun isAllVersionsConsistent(): Boolean {
