@@ -21,9 +21,9 @@ suspend fun main() {
         if (board.noMoreMoves()) break
         else print("Укажите ваш ход (или что-то иное для вывода правил): ")
         val input = readln()
-        if (input.filter { it.isDigit() }.let{it.isEmpty() || it.isBlank() }) {
+        if (input.filter { it.isDigit() }.let { it.isEmpty() || it.isBlank() }) {
             println(
-            """
+                """
             
             Правила игры:
             1. необходимо указать версии значений в пустых ячейках

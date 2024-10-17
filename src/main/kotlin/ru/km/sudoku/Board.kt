@@ -8,12 +8,12 @@ import ru.km.sudoku.Position.Companion.getWithDiagonallyOppositeIndexList
 import java.util.concurrent.ConcurrentLinkedQueue
 
 open class Board {
-    private lateinit var mVersions: MutableMap<Cell, Int>
+    private lateinit var _versions: MutableMap<Cell, Int>
     val versions: Map<Cell, Int>
-        get() = mVersions.toMap()
-    private lateinit var mCells: Map<Position, Cell>
+        get() = _versions.toMap()
+    private lateinit var _cells: Map<Position, Cell>
     val cells: Map<Position, Cell>
-        get() = mCells.toMap()
+        get() = _cells.toMap()
     private val traverseList = (1..LINE_SIZE_IN_CELL * LINE_SIZE_IN_CELL)
         .map { Position(it) }
         .sortedWith(Position.getRandomComparator())
@@ -32,23 +32,23 @@ open class Board {
 
     fun setVersion(index: Int, version: Int) = when (index) {
         0 -> cells
-            .forEach { mVersions[it.value] = 0 }
+            .forEach { _versions[it.value] = 0 }
 
         else -> cells
             .filter { it.key.index == index && !it.value.isVisible }
-            .firstNotNullOfOrNull { mVersions[it.value] = version }
+            .firstNotNullOfOrNull { _versions[it.value] = version }
     }
 
     suspend operator fun invoke(difficulty: Difficulty) {
-        allNodes.clear()
-        mCells = generateCells(difficulty)
-        mVersions = cells
+        _cells = generateCells(difficulty)
+        _versions = cells
             .map { it.value to if (it.value.isVisible) it.value.number else 0 }
             .associateBy(keySelector = { it.first }, valueTransform = { it.second })
             .toMutableMap()
     }
 
     private suspend fun generateCells(difficulty: Difficulty): Map<Position, Cell> {
+        allNodes.clear()
         defineChildNodes(Node(parent = null, Position(0), 0))
         val node = allNodes.first { it.position == lastPosition }
 
