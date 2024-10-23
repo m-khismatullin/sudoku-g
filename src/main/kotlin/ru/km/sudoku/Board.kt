@@ -1,11 +1,10 @@
 package ru.km.sudoku
 
-import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.*
+import kotlinx.coroutines.channels.Channel
 import ru.km.sudoku.Board.Companion.BLOCK_SIZE_IN_CELL
 import ru.km.sudoku.Board.Companion.LINE_SIZE_IN_CELL
 import ru.km.sudoku.Position.Companion.getWithDiagonallyOppositeIndexList
-import java.util.concurrent.ConcurrentLinkedQueue
 
 open class Board {
     private lateinit var _versions: MutableMap<Cell, Int>
@@ -19,7 +18,7 @@ open class Board {
         .sortedWith(Position.getRandomComparator())
     private val lastPosition: Position
         get() = traverseList.last()
-    private val allNodes = ConcurrentLinkedQueue<Node>()
+    private val nodeChannel = Channel<Node>()
 
     companion object {
         const val LINE_SIZE_IN_CELL = 9
@@ -48,10 +47,7 @@ open class Board {
     }
 
     private suspend fun generateCells(difficulty: Difficulty): Map<Position, Cell> {
-        allNodes.clear()
-        defineChildNodes(Node(parent = null, Position(0), 0))
-        val node = allNodes.first { it.position == lastPosition }
-
+        val node = calcNode()
         val state = node.getValuesFromNodeChain()
         val visiblePositions = generateVisiblePositions(state, Difficulty.getClues(difficulty))
 
@@ -63,25 +59,45 @@ open class Board {
         }.toMap()
     }
 
-    private fun isResultAchieved() = allNodes.any { it.position == lastPosition }
+    private suspend fun calcNode(): Node {
+        val job = CoroutineScope(Dispatchers.Default).launch {
+            calcNextNode(Node(parent = null, Position(0), 0))
+            println("***********************")
+        }
 
-    private suspend fun defineChildNodes(parent: Node) {
-        if (!isResultAchieved()) {
-            val index = (parent.parent?.let { traverseList.indexOf(parent.position) + 1 } ?: 0)
-            val position = traverseList[index]
-            val state = parent.getValuesFromNodeChain()
-            val possibles = state.leftInPos(position).toList().shuffled()
+        return CoroutineScope(Dispatchers.Default).async {
+            lateinit var result: Node
 
-            possibles.forEach {
-                coroutineScope {
-                    launch {
-                        val node = Node(parent, position, it)
-                        allNodes += node
-                        try {
-                            defineChildNodes(node)
-                        } catch (_: Exception) {
-                        }
-                    }
+            for (node in nodeChannel) {
+                result = node
+                nodeChannel.close()
+            }
+
+            job.cancel()
+
+            println("qqqqqqqqqqqqqqqqqq")
+
+            return@async result
+        }.await()
+    }
+
+    private suspend fun calcNextNode(parent: Node) {
+        val index = (parent.parent?.let { traverseList.indexOf(parent.position) + 1 } ?: 0)
+        val position = traverseList[index]
+        val state = parent.getValuesFromNodeChain()
+        val possibles = state.leftInPos(position).toList().shuffled()
+
+        println("${parent.position}:${possibles.size}")
+
+        possibles.forEach {
+            coroutineScope {
+                launch {
+                    val node = Node(parent, position, it)
+                    if (node.position == lastPosition) {
+                        println("${nodeChannel.isClosedForSend}:${nodeChannel.isClosedForReceive}")
+                        nodeChannel.send(node)
+                        throw CancellationException()
+                    } else calcNextNode(node)
                 }
             }
         }
