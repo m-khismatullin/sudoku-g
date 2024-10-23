@@ -1,7 +1,8 @@
 package ru.km.sudoku
 
-import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
 import ru.km.sudoku.Board.Companion.BLOCK_SIZE_IN_CELL
 import ru.km.sudoku.Board.Companion.LINE_SIZE_IN_CELL
 import ru.km.sudoku.Position.Companion.getWithDiagonallyOppositeIndexList
@@ -59,26 +60,11 @@ open class Board {
         }.toMap()
     }
 
-    private suspend fun calcNode(): Node {
-        val job = CoroutineScope(Dispatchers.Default).launch {
+    private suspend fun calcNode(): Node = coroutineScope {
+        val nodeCalcJob = launch {
             calcNextNode(Node(parent = null, Position(0), 0))
-            println("***********************")
         }
-
-        return CoroutineScope(Dispatchers.Default).async {
-            lateinit var result: Node
-
-            for (node in nodeChannel) {
-                result = node
-                nodeChannel.close()
-            }
-
-            job.cancel()
-
-            println("qqqqqqqqqqqqqqqqqq")
-
-            return@async result
-        }.await()
+        nodeChannel.receive().also { nodeCalcJob.cancel() }
     }
 
     private suspend fun calcNextNode(parent: Node) {
@@ -87,17 +73,11 @@ open class Board {
         val state = parent.getValuesFromNodeChain()
         val possibles = state.leftInPos(position).toList().shuffled()
 
-        println("${parent.position}:${possibles.size}")
-
         possibles.forEach {
             coroutineScope {
                 launch {
                     val node = Node(parent, position, it)
-                    if (node.position == lastPosition) {
-                        println("${nodeChannel.isClosedForSend}:${nodeChannel.isClosedForReceive}")
-                        nodeChannel.send(node)
-                        throw CancellationException()
-                    } else calcNextNode(node)
+                    if (node.position == lastPosition) nodeChannel.send(node) else calcNextNode(node)
                 }
             }
         }
