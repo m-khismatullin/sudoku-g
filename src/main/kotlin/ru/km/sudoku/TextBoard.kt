@@ -1,6 +1,10 @@
 package ru.km.sudoku
 
-class TextBoard: Board() {
+import ru.km.sudoku.Board.Companion.BLOCKS_IN_LINE
+import ru.km.sudoku.Board.Companion.BLOCK_SIZE_IN_CELL
+import ru.km.sudoku.Board.Companion.LINE_SIZE_IN_CELL
+
+class TextBoard(private val board: Board) {
     override fun toString(): String {
         val map = StringBuilder("\n")
         val mapLine = StringBuilder(" ")
@@ -17,11 +21,11 @@ class TextBoard: Board() {
         map.append(mapLine.append("\n"))
 
         mapLine.clear()
-        for (position in cells.keys.sortedWith(Position.getStandardComparator())) {
+        for (position in board.cells.keys.sortedWith(Position.getStandardComparator())) {
             if (position.index % LINE_SIZE_IN_CELL == 1) mapLine.append("${position.index / LINE_SIZE_IN_CELL + 1}|")
-            if (cells[position]?.isVisible == true || versions[cells[position]] == 0) {
-                mapLine.append(" ").append(cells[position].toString())
-            } else mapLine.append("?").append(versions[cells[position]].toString())
+            if (board.cells[position]?.isVisible == true || board.versions[board.cells[position]] == 0) {
+                mapLine.append(" ").append(board.cells[position].toString())
+            } else mapLine.append("?").append(board.versions[board.cells[position]].toString())
             mapLine.append(" ")
             if (position.index % BLOCK_SIZE_IN_CELL == 0) {
                 mapLine.append("|")
@@ -59,16 +63,18 @@ class TextBoard: Board() {
         if (input.isEmpty() || input.isBlank()) return
 
         if (input.length >= 3) {
-            if (input == "000") setVersion(0, 0)
+            if (input == "000") board.setVersion(0, 0)
             else {
                 val row = getNumFromChar(input[0])
                 val col = getNumFromChar(input[1])
                 val value = getNumFromChar(input[2])
 
                 if (row in (1..9) || col in (1..9) || value in (1..9)) {
-                    setVersion(Position.getIndexByRC(row, col), value)
+                    board.setVersion(Position.getIndexByRC(row, col), value)
                 }
             }
         }
     }
+
+    fun noMoreMoves(): Boolean = board.noMoreMoves()
 }

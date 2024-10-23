@@ -7,25 +7,96 @@ import ru.km.sudoku.Board.Companion.BLOCK_SIZE_IN_CELL
 import ru.km.sudoku.Board.Companion.LINE_SIZE_IN_CELL
 import ru.km.sudoku.Position.Companion.getWithDiagonallyOppositeIndexList
 
-open class Board {
-    private lateinit var _versions: MutableMap<Cell, Int>
+open class Board(val cells: Map<Position, Cell>) {
+    private val _versions: MutableMap<Cell, Int> = cells
+        .map { it.value to if (it.value.isVisible) it.value.number else 0 }
+        .associateBy(keySelector = { it.first }, valueTransform = { it.second })
+        .toMutableMap()
     val versions: Map<Cell, Int>
         get() = _versions.toMap()
-    private lateinit var _cells: Map<Position, Cell>
-    val cells: Map<Position, Cell>
-        get() = _cells.toMap()
-    private val traverseList = (1..LINE_SIZE_IN_CELL * LINE_SIZE_IN_CELL)
-        .map { Position(it) }
-        .sortedWith(Position.getRandomComparator())
-    private val lastPosition: Position
-        get() = traverseList.last()
-    private val nodeChannel = Channel<Node>()
+
 
     companion object {
         const val LINE_SIZE_IN_CELL = 9
         const val BLOCK_SIZE_IN_CELL = 3
         const val BLOCKS_IN_LINE = LINE_SIZE_IN_CELL / BLOCK_SIZE_IN_CELL
+
+        private val nodeChannel = Channel<Node>()
+        private val traverseList = (1..LINE_SIZE_IN_CELL * LINE_SIZE_IN_CELL)
+            .map { Position(it) }
+            .sortedWith(Position.getRandomComparator())
+        private val lastPosition: Position
+            get() = traverseList.last()
+
+        suspend fun createBoard(difficulty: Difficulty): Board {
+            return Board(generateCells(difficulty))
+        }
+
+        private suspend fun generateCells(difficulty: Difficulty): Map<Position, Cell> {
+            val node = calcNode()
+            val state = node.getValuesFromNodeChain()
+            val visiblePositions = generateVisiblePositions(state, Difficulty.getClues(difficulty))
+
+            return state.map {
+                it.key to Cell(
+                    isVisible = visiblePositions.contains(it.key.index),
+                    number = it.value
+                )
+            }.toMap()
+        }
+
+        private suspend fun calcNode(): Node = coroutineScope {
+            val nodeCalcJob = launch {
+                calcNextNode(Node(parent = null, Position(0), 0))
+            }
+            nodeChannel.receive().also { nodeCalcJob.cancel() }
+        }
+
+        private suspend fun calcNextNode(parent: Node) {
+            val index = (parent.parent?.let { traverseList.indexOf(parent.position) + 1 } ?: 0)
+            val position = traverseList[index]
+            val state = parent.getValuesFromNodeChain()
+            val possibles = state.leftInPos(position).toList().shuffled()
+
+            possibles.forEach {
+                coroutineScope {
+                    launch {
+                        val node = Node(parent, position, it)
+                        if (node.position == lastPosition) nodeChannel.send(node) else calcNextNode(node)
+                    }
+                }
+            }
+        }
+
+        private fun generateVisiblePositions(state: Map<Position, Int>, needToOpen: Int): Set<Int> {
+            val positionList = state.keys.toMutableList()
+            val opened = mutableSetOf<Int>()
+            var possibleState = state
+
+            while (opened.size - needToOpen <= 0 && positionList.size != 0) {
+                val position = positionList.random()
+                setOf(
+                    positionList.firstOrNull { getWithDiagonallyOppositeIndexList(position).random() == it.index }
+                        ?: position,
+                    position,
+                ).forEach {
+                    if (isStateAdequate(possibleState, it)) {
+                        possibleState = possibleState.minus(position)
+                        opened += it.index
+                    }
+                    positionList -= position
+                }
+            }
+
+            return opened.take(needToOpen).toSet()
+        }
+
+        private fun isStateAdequate(state: Map<Position, Int>, position: Position): Boolean {
+            val possibleState = state.minus(position)
+            return possibleState.leftInPos(position).size == 1
+        }
     }
+
 
     fun noMoreMoves(): Boolean =
         cells.values.all { (versions[it] ?: 0) > 0 } && isAllVersionsConsistent()
@@ -37,78 +108,6 @@ open class Board {
         else -> cells
             .filter { it.key.index == index && !it.value.isVisible }
             .firstNotNullOfOrNull { _versions[it.value] = version }
-    }
-
-    suspend operator fun invoke(difficulty: Difficulty) {
-        _cells = generateCells(difficulty)
-        _versions = cells
-            .map { it.value to if (it.value.isVisible) it.value.number else 0 }
-            .associateBy(keySelector = { it.first }, valueTransform = { it.second })
-            .toMutableMap()
-    }
-
-    private suspend fun generateCells(difficulty: Difficulty): Map<Position, Cell> {
-        val node = calcNode()
-        val state = node.getValuesFromNodeChain()
-        val visiblePositions = generateVisiblePositions(state, Difficulty.getClues(difficulty))
-
-        return state.map {
-            it.key to Cell(
-                isVisible = visiblePositions.contains(it.key.index),
-                number = it.value
-            )
-        }.toMap()
-    }
-
-    private suspend fun calcNode(): Node = coroutineScope {
-        val nodeCalcJob = launch {
-            calcNextNode(Node(parent = null, Position(0), 0))
-        }
-        nodeChannel.receive().also { nodeCalcJob.cancel() }
-    }
-
-    private suspend fun calcNextNode(parent: Node) {
-        val index = (parent.parent?.let { traverseList.indexOf(parent.position) + 1 } ?: 0)
-        val position = traverseList[index]
-        val state = parent.getValuesFromNodeChain()
-        val possibles = state.leftInPos(position).toList().shuffled()
-
-        possibles.forEach {
-            coroutineScope {
-                launch {
-                    val node = Node(parent, position, it)
-                    if (node.position == lastPosition) nodeChannel.send(node) else calcNextNode(node)
-                }
-            }
-        }
-    }
-
-    private fun generateVisiblePositions(state: Map<Position, Int>, needToOpen: Int): Set<Int> {
-        val positionList = state.keys.toMutableList()
-        val opened = mutableSetOf<Int>()
-        var possibleState = state
-
-        while (opened.size - needToOpen <= 0 && positionList.size != 0) {
-            val position = positionList.random()
-            setOf(
-                positionList.firstOrNull { getWithDiagonallyOppositeIndexList(position).random() == it.index }
-                    ?: position,
-                position,
-            ).forEach {
-                if (isStateAdequate(possibleState, it)) {
-                    possibleState = possibleState.minus(position)
-                    opened += it.index
-                }
-                positionList -= position
-            }
-        }
-
-        return opened.take(needToOpen).toSet()
-    }
-
-    private fun isStateAdequate(state: Map<Position, Int>, position: Position): Boolean {
-        val possibleState = state.minus(position)
-        return possibleState.leftInPos(position).size == 1
     }
 
     private fun isAllVersionsConsistent(): Boolean {
@@ -132,7 +131,6 @@ open class Board {
                 }
             }
     }
-
 }
 
 

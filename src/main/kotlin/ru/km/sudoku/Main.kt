@@ -13,12 +13,11 @@ suspend fun main() {
         else -> Difficulty.EASY
     }
 
-    val board = TextBoard()
-    board(difficulty)
-    println(board)
+    val textBoard = TextBoard(Board.createBoard(difficulty))
+    println(textBoard)
 
     while (true) {
-        if (board.noMoreMoves()) break
+        if (textBoard.noMoreMoves()) break
         else print("Укажите ваш ход (или что-то иное для вывода правил): ")
         val input = readln()
         if (input.filter { it.isDigit() }.let { it.isEmpty() || it.isBlank() }) {
@@ -32,8 +31,8 @@ suspend fun main() {
             4. для сброса всех установленных версий необходимо указать 000
             """.trimIndent()
             )
-        } else board.setVersionForField(input)
-        println(board)
+        } else textBoard.setVersionForField(input)
+        println(textBoard)
     }
 
     println("Вы разгадали судоку!")
