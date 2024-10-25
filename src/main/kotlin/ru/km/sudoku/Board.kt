@@ -26,19 +26,20 @@ open class Board(val cells: Map<Position, Cell>) {
 
     private fun isAllVersionsConsistent(): Boolean {
         if (versions.any { it.value == 0 }) return false
-        val mvCells = mutableMapOf<Position, Int>()
-        versions.forEach { vEntry ->
-            val cell = vEntry.key
-            val version = vEntry.value
-            val index = cells.filter { it.value == cell }.map { it.key }.first()
-            mvCells[index] = if (!cell.isVisible) version else cell.number
-        }
 
-        val vCells = mvCells.toMap()
-        return vCells
+        val cellsWithVersions = versions
+            .map { entry ->
+                val cell = entry.key
+                val version = entry.value
+                val index = cells.filter { it.value == cell }.map { it.key }.first()
+                index to (if (!cell.isVisible) version else cell.number)
+            }
+            .toMap()
+
+        return cellsWithVersions
             .filter { it.key.col == it.key.row }
             .none {
-                with(vCells) {
+                with(cellsWithVersions) {
                     this.leftInRow(it.key).isNotEmpty() ||
                             this.leftInCol(it.key).isNotEmpty() ||
                             this.leftInBlk(it.key).isNotEmpty()
@@ -59,9 +60,7 @@ open class Board(val cells: Map<Position, Cell>) {
         private val lastPosition: Position
             get() = traverseList.last()
 
-        suspend fun byDifficulty(difficulty: Difficulty): Board {
-            return Board(generateCells(difficulty))
-        }
+        suspend fun withDifficulty(difficulty: Difficulty): Board = Board(generateCells(difficulty))
 
         private suspend fun generateCells(difficulty: Difficulty): Map<Position, Cell> {
             val node = calcNode()

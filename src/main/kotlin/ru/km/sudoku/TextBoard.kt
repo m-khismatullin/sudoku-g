@@ -4,7 +4,7 @@ import ru.km.sudoku.Board.Companion.BLOCKS_IN_LINE
 import ru.km.sudoku.Board.Companion.BLOCK_SIZE_IN_CELL
 import ru.km.sudoku.Board.Companion.LINE_SIZE_IN_CELL
 
-class TextBoard(private val board: Board) {
+class TextBoard(val board: Board) {
     override fun toString(): String {
         val map = StringBuilder("\n")
         val mapLine = StringBuilder(" ")
@@ -57,21 +57,15 @@ class TextBoard(private val board: Board) {
 
     private fun getNumFromChar(char: Char) = char - '0'
 
-    fun setVersionForField(userInput: String) {
-        val input = userInput.filter { it.isDigit() }
+    fun setVersionForField(rowColValue: String) {
+        if (rowColValue == "000") board.setVersion(0, 0)
+        else {
+            val row = getNumFromChar(rowColValue[0])
+            val col = getNumFromChar(rowColValue[1])
+            val value = getNumFromChar(rowColValue[2])
 
-        if (input.isEmpty() || input.isBlank()) return
-
-        if (input.length >= 3) {
-            if (input == "000") board.setVersion(0, 0)
-            else {
-                val row = getNumFromChar(input[0])
-                val col = getNumFromChar(input[1])
-                val value = getNumFromChar(input[2])
-
-                if (row in (1..9) || col in (1..9) || value in (1..9)) {
-                    board.setVersion(Position.getIndexByRC(row, col), value)
-                }
+            if (row in (1..9) || col in (1..9) || value in (1..9)) {
+                board.setVersion(Position.getIndexByRC(row, col), value)
             }
         }
     }
