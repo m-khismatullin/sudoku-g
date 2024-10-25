@@ -13,14 +13,13 @@ suspend fun main() {
         else -> Difficulty.EASY
     }
 
-    val textBoard = TextBoard(Board.createBoard(difficulty))
+    val textBoard = TextBoard(Board.byDifficulty(difficulty))
     println(textBoard)
 
-    while (true) {
-        if (textBoard.noMoreMoves()) break
-        else print("Укажите ваш ход (или что-то иное для вывода правил): ")
+    while (!textBoard.noMoreMoves()) {
+        print("Укажите ваш ход (или что-то иное для вывода правил): ")
         val input = readln()
-        if (input.filter { it.isDigit() }.let { it.isEmpty() || it.isBlank() }) {
+        if (!input.isValidMove()) {
             println(
                 """
             
@@ -37,3 +36,5 @@ suspend fun main() {
 
     println("Вы разгадали судоку!")
 }
+
+private fun String.isValidMove(): Boolean = this.filter { it.isDigit() }.let { it.isEmpty() || it.isBlank() }

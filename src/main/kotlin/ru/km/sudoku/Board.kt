@@ -12,8 +12,39 @@ open class Board(val cells: Map<Position, Cell>) {
         .map { it.value to if (it.value.isVisible) it.value.number else 0 }
         .associateBy(keySelector = { it.first }, valueTransform = { it.second })
         .toMutableMap()
-    val versions: Map<Cell, Int>
-        get() = _versions.toMap()
+    val versions: Map<Cell, Int> get() = _versions.toMap()
+
+    fun noMoreMoves(): Boolean =
+        cells.values.all { (versions[it] ?: 0) > 0 } && isAllVersionsConsistent()
+
+    fun setVersion(index: Int, version: Int) =
+        if (index == 0) cells
+            .forEach { _versions[it.value] = 0 }
+        else cells
+            .filter { it.key.index == index && !it.value.isVisible }
+            .firstNotNullOfOrNull { _versions[it.value] = version }
+
+    private fun isAllVersionsConsistent(): Boolean {
+        if (versions.any { it.value == 0 }) return false
+        val mvCells = mutableMapOf<Position, Int>()
+        versions.forEach { vEntry ->
+            val cell = vEntry.key
+            val version = vEntry.value
+            val index = cells.filter { it.value == cell }.map { it.key }.first()
+            mvCells[index] = if (!cell.isVisible) version else cell.number
+        }
+
+        val vCells = mvCells.toMap()
+        return vCells
+            .filter { it.key.col == it.key.row }
+            .none {
+                with(vCells) {
+                    this.leftInRow(it.key).isNotEmpty() ||
+                            this.leftInCol(it.key).isNotEmpty() ||
+                            this.leftInBlk(it.key).isNotEmpty()
+                }
+            }
+    }
 
 
     companion object {
@@ -28,7 +59,7 @@ open class Board(val cells: Map<Position, Cell>) {
         private val lastPosition: Position
             get() = traverseList.last()
 
-        suspend fun createBoard(difficulty: Difficulty): Board {
+        suspend fun byDifficulty(difficulty: Difficulty): Board {
             return Board(generateCells(difficulty))
         }
 
@@ -96,41 +127,6 @@ open class Board(val cells: Map<Position, Cell>) {
             return possibleState.leftInPos(position).size == 1
         }
     }
-
-
-    fun noMoreMoves(): Boolean =
-        cells.values.all { (versions[it] ?: 0) > 0 } && isAllVersionsConsistent()
-
-    fun setVersion(index: Int, version: Int) = when (index) {
-        0 -> cells
-            .forEach { _versions[it.value] = 0 }
-
-        else -> cells
-            .filter { it.key.index == index && !it.value.isVisible }
-            .firstNotNullOfOrNull { _versions[it.value] = version }
-    }
-
-    private fun isAllVersionsConsistent(): Boolean {
-        if (versions.any { it.value == 0 }) return false
-        val mvCells = mutableMapOf<Position, Int>()
-        versions.forEach { vEntry ->
-            val cell = vEntry.key
-            val version = vEntry.value
-            val index = cells.filter { it.value == cell }.map { it.key }.first()
-            mvCells[index] = if (!cell.isVisible) version else cell.number
-        }
-
-        val vCells = mvCells.toMap()
-        return vCells
-            .filter { it.key.col == it.key.row }
-            .none {
-                with(vCells) {
-                    this.leftInRow(it.key).isNotEmpty() ||
-                            this.leftInCol(it.key).isNotEmpty() ||
-                            this.leftInBlk(it.key).isNotEmpty()
-                }
-            }
-    }
 }
 
 
@@ -138,7 +134,7 @@ open class Board(val cells: Map<Position, Cell>) {
 private fun Map<Position, Int>.leftIn(
     position: Position,
     rangeLimit: Int,
-    lambda: (pos: Position) -> Int
+    lambda: (pos: Position) -> Int,
 ): Set<Int> {
     val given = lambda(position)
     return (1..rangeLimit).minus(
